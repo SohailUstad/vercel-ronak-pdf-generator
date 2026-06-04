@@ -1,0 +1,13 @@
+{
+  "name": "ronak-zoho-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local test proxy for Zoho Books invoice generation.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
