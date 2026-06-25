@@ -52,6 +52,24 @@ const unitLabels = {
   in: 'in',
 };
 const SIDE_HOLES = Array.from({ length: 19 }, (_, index) => index);
+const TRUCK_BODY_DOTS = Array.from({ length: 10 }, (_, row) => (
+  Array.from({ length: 40 }, (__, column) => ({
+    x: 22 + column * 3.2,
+    y: 24 + row * 3.2,
+  }))
+)).flat();
+const TRUCK_CABIN_DOTS = Array.from({ length: 14 }, (_, row) => (
+  Array.from({ length: 15 }, (__, column) => {
+    const x = 155.5 + column * 3;
+    const y = 11.5 + row * 3;
+    const insideLowerCabin = y >= 32 && x <= 198;
+    const insideRoof = y < 32 && x >= 162 - (y - 11.5) * 0.38 && x <= 194 - (32 - y) * 0.08;
+    const insideWindow = y >= 20 && y <= 30 && x >= 164 && x <= 189;
+    return insideLowerCabin || insideRoof
+      ? { x, y, hidden: insideWindow }
+      : null;
+  }).filter(Boolean)
+)).flat();
 
 const toMillimeters = (value, unit) => {
   const numericValue = Number(value) || 0;
@@ -336,12 +354,22 @@ function App() {
           </header>
 
           <div className="truck-scene">
-            <div className="truck-body" />
-            <div className="truck-cabin" />
-            <div className="truck-window" />
-            <span className="wheel wheel-one" />
-            <span className="wheel wheel-two" />
-            <span className="bridge-line" />
+            <svg
+              className="truck-art"
+              viewBox="0 0 240 72"
+              role="img"
+              aria-label="Truck on weighbridge"
+            >
+              {TRUCK_BODY_DOTS.map((dot, index) => (
+                <circle key={`body-${index}`} cx={dot.x} cy={dot.y} r="1.05" fill="#121820" />
+              ))}
+              {TRUCK_CABIN_DOTS.map((dot, index) => (
+                !dot.hidden && <circle key={`cabin-${index}`} cx={dot.x} cy={dot.y} r="1.05" fill="#121820" />
+              ))}
+              <circle cx="57" cy="59" r="9" fill="#ffffff" stroke="#121820" strokeWidth="4" strokeDasharray="1.6 2.2" />
+              <circle cx="167" cy="59" r="9" fill="#ffffff" stroke="#121820" strokeWidth="4" strokeDasharray="1.6 2.2" />
+              <line x1="0" y1="69" x2="240" y2="69" stroke="#121820" strokeWidth="5" strokeDasharray="1.5 2.5" />
+            </svg>
           </div>
 
           <div className="capacity-band">CAPACITY 150 TON | 20 METER LONG | 24 HOURS SERVICE</div>
@@ -389,6 +417,7 @@ function App() {
             <div>Operator's Signature</div>
           </footer>
 
+          <div className="ink-dot-screen" aria-hidden="true" />
         </div>
       </section>
     </main>

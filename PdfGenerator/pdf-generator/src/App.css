@@ -182,6 +182,20 @@ button:disabled {
   background: #eef2f5;
 }
 
+.ink-dot-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      circle,
+      rgba(255, 255, 255, 0.98) 0 0.34px,
+      transparent 0.46px
+    )
+    0 0 / 2px 2px;
+}
+
 .side-rail {
   position: absolute;
   inset: 0 auto 0 46px;
@@ -275,77 +289,11 @@ button:disabled {
   height: 72px;
 }
 
-.truck-body,
-.truck-cabin {
-  position: absolute;
-  background:
-    radial-gradient(circle, var(--ink) 0 1.15px, transparent 1.35px)
-    0 0 / 3.2px 3.2px;
-}
-
-.truck-body {
-  left: 20px;
-  top: 22px;
-  width: 130px;
-  height: 31px;
-  border-radius: 5px 5px 2px 2px;
-}
-
-.truck-cabin {
-  left: 154px;
-  top: 31px;
-  width: 45px;
-  height: 22px;
-  border-radius: 3px;
-}
-
-.truck-cabin::before {
-  content: "";
-  position: absolute;
-  left: 8px;
-  top: -21px;
-  border-right: 32px solid transparent;
-  border-bottom: 21px solid var(--ink);
-  opacity: 0.82;
-}
-
-.truck-window {
-  position: absolute;
-  left: 166px;
-  top: 20px;
-  width: 20px;
-  height: 11px;
-  background: var(--paper);
-  transform: skewX(-18deg);
-}
-
-.wheel {
-  position: absolute;
-  top: 50px;
-  width: 18px;
-  height: 18px;
-  border: 4px dotted var(--ink);
-  border-radius: 999px;
-  background: var(--paper);
-}
-
-.wheel-one {
-  left: 48px;
-}
-
-.wheel-two {
-  left: 158px;
-}
-
-.bridge-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 6px;
-  background:
-    radial-gradient(circle, var(--ink) 0 1.25px, transparent 1.45px)
-    0 50% / 4px 4px repeat-x;
+.truck-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
 .capacity-band {
