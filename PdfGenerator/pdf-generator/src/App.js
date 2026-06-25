@@ -30,15 +30,6 @@ const decimalOnly = (value) => {
 };
 const toNumber = (value) => Number(value || 0);
 const PDF_SETTINGS_KEY = 'maas-weighbridge-pdf-settings';
-const DOTS_PER_INCH = 72;
-const DOT_SAMPLE_SCALE = 2;
-const DOT_RENDER_SCALE = 5;
-const BAYER_MATRIX = [
-  [0, 8, 2, 10],
-  [12, 4, 14, 6],
-  [3, 11, 1, 9],
-  [15, 7, 13, 5],
-];
 
 const pagePresets = {
   a4: { label: 'A4 landscape', width: 297, height: 210 },
@@ -60,6 +51,7 @@ const unitLabels = {
   cm: 'cm',
   in: 'in',
 };
+const SIDE_HOLES = Array.from({ length: 19 }, (_, index) => index);
 
 const toMillimeters = (value, unit) => {
   const numericValue = Number(value) || 0;
@@ -77,102 +69,6 @@ const fromMillimeters = (value, unit) => {
 const formatMeasurement = (value) => {
   const rounded = Math.round(value * 1000) / 1000;
   return String(rounded).replace(/\.?0+$/, '');
-};
-
-const seededNoise = (x, y, salt = 0) => {
-  let value = Math.imul(x + 1, 374761393) + Math.imul(y + 1, 668265263) + salt;
-  value = Math.imul(value ^ (value >>> 13), 1274126177);
-  return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
-};
-
-const createDotMatrixCanvas = (sourceCanvas, widthMm, heightMm) => {
-  const dotWidth = Math.max(1, Math.round((widthMm / 25.4) * DOTS_PER_INCH));
-  const dotHeight = Math.max(1, Math.round((heightMm / 25.4) * DOTS_PER_INCH));
-  const sampleCanvas = document.createElement('canvas');
-  const sampleContext = sampleCanvas.getContext('2d', { willReadFrequently: true });
-  const sampleWidth = dotWidth * DOT_SAMPLE_SCALE;
-  const sampleHeight = dotHeight * DOT_SAMPLE_SCALE;
-
-  sampleCanvas.width = sampleWidth;
-  sampleCanvas.height = sampleHeight;
-  sampleContext.fillStyle = '#ffffff';
-  sampleContext.fillRect(0, 0, sampleWidth, sampleHeight);
-  sampleContext.drawImage(sourceCanvas, 0, 0, sampleWidth, sampleHeight);
-
-  const pixels = sampleContext.getImageData(0, 0, sampleWidth, sampleHeight).data;
-  const outputCanvas = document.createElement('canvas');
-  const outputContext = outputCanvas.getContext('2d');
-
-  outputCanvas.width = dotWidth * DOT_RENDER_SCALE;
-  outputCanvas.height = dotHeight * DOT_RENDER_SCALE;
-  outputContext.fillStyle = '#f5f2e8';
-  outputContext.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
-
-  // Faint scan bands and paper flecks keep the export from looking digitally perfect.
-  outputContext.fillStyle = 'rgba(68, 65, 55, 0.035)';
-  for (let y = 7; y < outputCanvas.height; y += 17) {
-    outputContext.fillRect(0, y, outputCanvas.width, 1);
-  }
-  for (let index = 0; index < dotWidth * dotHeight * 0.004; index += 1) {
-    const x = Math.floor(seededNoise(index, 3, 17) * outputCanvas.width);
-    const y = Math.floor(seededNoise(index, 7, 31) * outputCanvas.height);
-    outputContext.fillRect(x, y, 1, 1);
-  }
-
-  outputContext.fillStyle = '#373732';
-  outputContext.beginPath();
-
-  for (let y = 0; y < dotHeight; y += 1) {
-    for (let x = 0; x < dotWidth; x += 1) {
-      let darkestLuminance = 255;
-      let luminanceTotal = 0;
-
-      for (let sampleY = 0; sampleY < DOT_SAMPLE_SCALE; sampleY += 1) {
-        for (let sampleX = 0; sampleX < DOT_SAMPLE_SCALE; sampleX += 1) {
-          const pixelIndex = (
-            ((y * DOT_SAMPLE_SCALE + sampleY) * sampleWidth)
-            + x * DOT_SAMPLE_SCALE
-            + sampleX
-          ) * 4;
-          const luminance = (
-            pixels[pixelIndex] * 0.2126
-            + pixels[pixelIndex + 1] * 0.7152
-            + pixels[pixelIndex + 2] * 0.0722
-          );
-          darkestLuminance = Math.min(darkestLuminance, luminance);
-          luminanceTotal += luminance;
-        }
-      }
-
-      const averageLuminance = luminanceTotal / (DOT_SAMPLE_SCALE ** 2);
-      const inkLevel = Math.max(255 - darkestLuminance, (255 - averageLuminance) * 1.35);
-      const threshold = 42 + BAYER_MATRIX[y % 4][x % 4] * 8;
-
-      if (inkLevel > threshold) {
-        const jitterX = (seededNoise(x, y, 47) - 0.5) * DOT_RENDER_SCALE * 0.12;
-        const jitterY = (seededNoise(x, y, 83) - 0.5) * DOT_RENDER_SCALE * 0.12;
-        const radiusVariation = 0.9 + seededNoise(x, y, 109) * 0.2;
-        const radiusX = DOT_RENDER_SCALE * 0.3 * radiusVariation;
-        const radiusY = DOT_RENDER_SCALE * 0.27 * radiusVariation;
-        const centerX = x * DOT_RENDER_SCALE + DOT_RENDER_SCALE / 2 + jitterX;
-        const centerY = y * DOT_RENDER_SCALE + DOT_RENDER_SCALE / 2 + jitterY;
-
-        outputContext.moveTo(centerX + radiusX, centerY);
-        outputContext.ellipse(
-          centerX,
-          centerY,
-          radiusX,
-          radiusY,
-          0,
-          0,
-          Math.PI * 2,
-        );
-      }
-    }
-  }
-
-  outputContext.fill();
-  return outputCanvas;
 };
 
 const getStoredPdfSettings = () => {
@@ -281,8 +177,9 @@ function App() {
       setIsGenerating(true);
       const canvas = await html2canvas(slipRef.current, {
         backgroundColor: '#ffffff',
-        scale: 1.65,
+        scale: 3,
         useCORS: true,
+        logging: false,
       });
       const pageSize = getPdfPageSize();
       const doc = new jsPDF({
@@ -305,8 +202,7 @@ function App() {
         imageWidth = imageHeight * sourceRatio;
       }
 
-      const dotMatrixCanvas = createDotMatrixCanvas(canvas, imageWidth, imageHeight);
-      const imageData = dotMatrixCanvas.toDataURL('image/png');
+      const imageData = canvas.toDataURL('image/png');
       const imageX = (pageWidth - imageWidth) / 2;
       const imageY = (pageHeight - imageHeight) / 2;
 
@@ -415,6 +311,13 @@ function App() {
 
       <section className="preview-panel" aria-label="Slip preview">
         <div className="slip-preview" ref={slipRef}>
+          <div className="side-holes side-holes-left" aria-hidden="true">
+            {SIDE_HOLES.map((hole) => <span key={hole} />)}
+          </div>
+          <div className="side-holes side-holes-right" aria-hidden="true">
+            {SIDE_HOLES.map((hole) => <span key={hole} />)}
+          </div>
+
           <div className="side-rail">
             <span>COMPUTERISED WEIGH BRIDGE</span>
           </div>
@@ -485,6 +388,7 @@ function App() {
             <div>Driver's Signature</div>
             <div>Operator's Signature</div>
           </footer>
+
         </div>
       </section>
     </main>

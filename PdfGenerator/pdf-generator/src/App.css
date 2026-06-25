@@ -135,44 +135,51 @@ button:disabled {
 }
 
 .slip-preview {
+  --paper: #ffffff;
+  --ink: #121820;
   position: relative;
   width: min(100%, 1100px);
   min-width: 920px;
   aspect-ratio: 1.7 / 1;
   margin: 4px auto;
   overflow: hidden;
-  background:
-    linear-gradient(90deg, transparent 0 44px, rgba(17, 24, 39, 0.05) 44px 45px, transparent 45px calc(100% - 44px), rgba(17, 24, 39, 0.05) calc(100% - 45px) calc(100% - 44px), transparent calc(100% - 44px)),
-    repeating-linear-gradient(0deg, rgba(17, 24, 39, 0.08) 0 1px, transparent 1px 18px),
-    radial-gradient(circle, rgba(17, 24, 39, 0.11) 0 0.7px, transparent 0.9px) 0 0 / 4px 4px,
-    #fbfaf3;
+  background: var(--paper);
   border: 1px solid #1f2933;
   border-radius: 0;
   box-shadow: 0 18px 34px rgba(20, 35, 68, 0.16);
-  color: #121820;
+  color: var(--ink);
   font-family: "Courier New", Courier, monospace;
-  filter: contrast(1.08) grayscale(1);
+  filter: none;
 }
 
-.slip-preview::before,
-.slip-preview::after {
-  content: "";
+.side-holes {
   position: absolute;
   top: 14px;
   bottom: 14px;
   width: 24px;
   z-index: 4;
-  background:
-    radial-gradient(circle, #eef2f5 0 5px, #1f2933 5.4px 6px, transparent 6.4px) center top / 24px 32px repeat-y;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   pointer-events: none;
 }
 
-.slip-preview::before {
+.side-holes-left {
   left: 10px;
 }
 
-.slip-preview::after {
+.side-holes-right {
   right: 10px;
+}
+
+.side-holes span {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: #eef2f5;
 }
 
 .side-rail {
@@ -181,7 +188,7 @@ button:disabled {
   width: 34px;
   display: grid;
   place-items: center;
-  border-right: 1px dashed #121820;
+  border-right: 2px dotted var(--ink);
   background: transparent;
   color: #121820;
   font-size: 14px;
@@ -208,7 +215,7 @@ button:disabled {
   grid-template-columns: 1.1fr 80px 190px 148px;
   align-items: center;
   gap: 18px;
-  border-bottom: 1px dashed #121820;
+  border-bottom: 2px dotted var(--ink);
   padding-bottom: 16px;
 }
 
@@ -272,8 +279,8 @@ button:disabled {
 .truck-cabin {
   position: absolute;
   background:
-    repeating-linear-gradient(90deg, #121820 0 2px, transparent 2px 4px),
-    #121820;
+    radial-gradient(circle, var(--ink) 0 1.15px, transparent 1.35px)
+    0 0 / 3.2px 3.2px;
 }
 
 .truck-body {
@@ -298,7 +305,8 @@ button:disabled {
   left: 8px;
   top: -21px;
   border-right: 32px solid transparent;
-  border-bottom: 21px solid #121820;
+  border-bottom: 21px solid var(--ink);
+  opacity: 0.82;
 }
 
 .truck-window {
@@ -307,7 +315,7 @@ button:disabled {
   top: 20px;
   width: 20px;
   height: 11px;
-  background: #fbfaf3;
+  background: var(--paper);
   transform: skewX(-18deg);
 }
 
@@ -316,9 +324,9 @@ button:disabled {
   top: 50px;
   width: 18px;
   height: 18px;
-  border: 4px solid #121820;
+  border: 4px dotted var(--ink);
   border-radius: 999px;
-  background: #fbfaf3;
+  background: var(--paper);
 }
 
 .wheel-one {
@@ -334,8 +342,10 @@ button:disabled {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 5px;
-  background: #121820;
+  height: 6px;
+  background:
+    radial-gradient(circle, var(--ink) 0 1.25px, transparent 1.45px)
+    0 50% / 4px 4px repeat-x;
 }
 
 .capacity-band {
@@ -346,7 +356,7 @@ button:disabled {
   display: grid;
   place-items: center;
   height: 46px;
-  border-block: 1px dashed #121820;
+  border-block: 2px dotted var(--ink);
   border-radius: 0;
   background: transparent;
   color: #121820;
@@ -364,18 +374,18 @@ button:disabled {
   display: grid;
   grid-template-columns: 1.3fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr;
   gap: 0;
-  border-top: 1px solid #121820;
-  border-left: 1px solid #121820;
+  border-top: 2px dotted var(--ink);
+  border-left: 2px dotted var(--ink);
 }
 
 .detail-grid div,
 .customer-line {
   min-width: 0;
   border: 0;
-  border-right: 1px solid #121820;
-  border-bottom: 1px solid #121820;
+  border-right: 2px dotted var(--ink);
+  border-bottom: 2px dotted var(--ink);
   border-radius: 0;
-  background: rgba(251, 250, 243, 0.55);
+  background: #ffffff;
   padding: 12px 13px;
 }
 
@@ -405,8 +415,8 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
-  border-top: 2px solid #121820;
-  border-left: 2px solid #121820;
+  border-top: 3px dotted var(--ink);
+  border-left: 3px dotted var(--ink);
 }
 
 .weight-card,
@@ -416,11 +426,11 @@ button:disabled {
   align-content: center;
   gap: 8px;
   border: 0;
-  border-right: 2px solid #121820;
-  border-bottom: 2px solid #121820;
+  border-right: 3px dotted var(--ink);
+  border-bottom: 3px dotted var(--ink);
   border-radius: 0;
   padding: 16px;
-  background: rgba(251, 250, 243, 0.42);
+  background: #ffffff;
 }
 
 .weight-card span,
@@ -457,8 +467,8 @@ button:disabled {
   display: grid;
   grid-template-columns: 130px 1fr;
   align-items: center;
-  border-left: 1px solid #121820;
-  border-top: 1px solid #121820;
+  border-left: 2px dotted var(--ink);
+  border-top: 2px dotted var(--ink);
 }
 
 .customer-line span {
@@ -485,13 +495,13 @@ button:disabled {
   height: 62px;
   display: grid;
   grid-template-columns: 1.7fr 0.8fr 0.9fr;
-  border-top: 2px solid #121820;
+  border-top: 3px dotted var(--ink);
 }
 
 .slip-footer div {
   display: grid;
   place-items: center;
-  border-left: 2px solid #121820;
+  border-left: 3px dotted var(--ink);
   color: #121820;
   font-size: 17px;
   font-weight: 800;
