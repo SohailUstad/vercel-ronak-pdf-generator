@@ -70,6 +70,54 @@ const TRUCK_CABIN_DOTS = Array.from({ length: 14 }, (_, row) => (
       : null;
   }).filter(Boolean)
 )).flat();
+const DOT_SOURCE_SCALE = 5;
+const DOT_PITCH = 3;
+const DOT_RADIUS = 1.5;
+const DOT_THRESHOLD = 200;
+
+const createDottedArtwork = (sourceCanvas) => {
+  const sourceContext = sourceCanvas.getContext('2d', { willReadFrequently: true });
+  const pixels = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height).data;
+  const outputCanvas = document.createElement('canvas');
+  const outputContext = outputCanvas.getContext('2d');
+
+  outputCanvas.width = sourceCanvas.width;
+  outputCanvas.height = sourceCanvas.height;
+  outputContext.fillStyle = '#ffffff';
+  outputContext.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
+  outputContext.fillStyle = '#000000';
+  outputContext.beginPath();
+
+  for (let y = 0; y < sourceCanvas.height; y += DOT_PITCH) {
+    for (let x = 0; x < sourceCanvas.width; x += DOT_PITCH) {
+      let darkest = 255;
+
+      for (let sampleY = 0; sampleY < DOT_PITCH; sampleY += 1) {
+        for (let sampleX = 0; sampleX < DOT_PITCH; sampleX += 1) {
+          const pixelX = Math.min(x + sampleX, sourceCanvas.width - 1);
+          const pixelY = Math.min(y + sampleY, sourceCanvas.height - 1);
+          const pixelIndex = (pixelY * sourceCanvas.width + pixelX) * 4;
+          const luminance = (
+            pixels[pixelIndex] * 0.2126
+            + pixels[pixelIndex + 1] * 0.7152
+            + pixels[pixelIndex + 2] * 0.0722
+          );
+          darkest = Math.min(darkest, luminance);
+        }
+      }
+
+      if (darkest < DOT_THRESHOLD) {
+        const centerX = x + DOT_PITCH / 2;
+        const centerY = y + DOT_PITCH / 2;
+        outputContext.moveTo(centerX + DOT_RADIUS, centerY);
+        outputContext.arc(centerX, centerY, DOT_RADIUS, 0, Math.PI * 2);
+      }
+    }
+  }
+
+  outputContext.fill();
+  return outputCanvas.toDataURL('image/png');
+};
 
 const toMillimeters = (value, unit) => {
   const numericValue = Number(value) || 0;
@@ -102,6 +150,7 @@ function App() {
   const [slip, setSlip] = useState(initialSlip);
   const [pdfSettings, setPdfSettings] = useState(getStoredPdfSettings);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [dottedArtwork, setDottedArtwork] = useState('');
   const slipRef = useRef(null);
 
   const netWeight = useMemo(() => {
@@ -122,6 +171,32 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(PDF_SETTINGS_KEY, JSON.stringify(pdfSettings));
   }, [pdfSettings]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const frame = window.requestAnimationFrame(async () => {
+      if (!slipRef.current) return;
+
+      const sourceCanvas = await html2canvas(slipRef.current, {
+        backgroundColor: '#ffffff',
+        scale: DOT_SOURCE_SCALE,
+        useCORS: true,
+        logging: false,
+        onclone: (clonedDocument) => {
+          clonedDocument.querySelector('.dotted-artwork')?.remove();
+        },
+      });
+
+      if (!cancelled) {
+        setDottedArtwork(createDottedArtwork(sourceCanvas));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frame);
+    };
+  }, [slip]);
 
   const setField = (name, value) => {
     setSlip((current) => ({ ...current, [name]: value }));
@@ -193,12 +268,6 @@ function App() {
 
     try {
       setIsGenerating(true);
-      const canvas = await html2canvas(slipRef.current, {
-        backgroundColor: '#ffffff',
-        scale: 3,
-        useCORS: true,
-        logging: false,
-      });
       const pageSize = getPdfPageSize();
       const doc = new jsPDF({
         orientation: pageSize.width >= pageSize.height ? 'landscape' : 'portrait',
@@ -211,7 +280,7 @@ function App() {
       const margin = Math.max(toMillimeters(pdfSettings.margin, activeSizeUnit), 0);
       const maxWidth = pageWidth - margin * 2;
       const maxHeight = pageHeight - margin * 2;
-      const sourceRatio = canvas.width / canvas.height;
+      const sourceRatio = slipRef.current.offsetWidth / slipRef.current.offsetHeight;
       let imageWidth = maxWidth;
       let imageHeight = imageWidth / sourceRatio;
 
@@ -220,11 +289,12 @@ function App() {
         imageWidth = imageHeight * sourceRatio;
       }
 
-      const imageData = canvas.toDataURL('image/png');
+      const imageData = dottedArtwork;
       const imageX = (pageWidth - imageWidth) / 2;
       const imageY = (pageHeight - imageHeight) / 2;
 
-      doc.addImage(imageData, 'PNG', imageX, imageY, imageWidth, imageHeight, undefined, 'FAST');
+      if (!imageData) return;
+      doc.addImage(imageData, 'PNG', imageX, imageY, imageWidth, imageHeight, undefined, 'NONE');
       doc.save(`weighbridge-slip-${slip.vehicleNo || slip.serialNo}.pdf`);
     } finally {
       setIsGenerating(false);
@@ -417,7 +487,9 @@ function App() {
             <div>Operator's Signature</div>
           </footer>
 
-          <div className="ink-dot-screen" aria-hidden="true" />
+          {dottedArtwork && (
+            <img className="dotted-artwork" src={dottedArtwork} alt="" aria-hidden="true" />
+          )}
         </div>
       </section>
     </main>
