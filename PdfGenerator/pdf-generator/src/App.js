@@ -72,8 +72,9 @@ const TRUCK_CABIN_DOTS = Array.from({ length: 14 }, (_, row) => (
 )).flat();
 const DOT_SOURCE_SCALE = 5;
 const DOT_PITCH = 3;
-const DOT_RADIUS = 1.5;
-const DOT_THRESHOLD = 200;
+const DOT_RADIUS = 1.34;
+const DOT_THRESHOLD = 195;
+const DOT_INK = '#10234f';
 
 const createDottedArtwork = (sourceCanvas) => {
   const sourceContext = sourceCanvas.getContext('2d', { willReadFrequently: true });
@@ -85,8 +86,9 @@ const createDottedArtwork = (sourceCanvas) => {
   outputCanvas.height = sourceCanvas.height;
   outputContext.fillStyle = '#ffffff';
   outputContext.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
-  outputContext.fillStyle = '#000000';
+  outputContext.fillStyle = DOT_INK;
   outputContext.beginPath();
+  let dotCount = 0;
 
   for (let y = 0; y < sourceCanvas.height; y += DOT_PITCH) {
     for (let x = 0; x < sourceCanvas.width; x += DOT_PITCH) {
@@ -111,12 +113,13 @@ const createDottedArtwork = (sourceCanvas) => {
         const centerY = y + DOT_PITCH / 2;
         outputContext.moveTo(centerX + DOT_RADIUS, centerY);
         outputContext.arc(centerX, centerY, DOT_RADIUS, 0, Math.PI * 2);
+        dotCount += 1;
       }
     }
   }
 
   outputContext.fill();
-  return outputCanvas.toDataURL('image/png');
+  return dotCount > 0 ? outputCanvas.toDataURL('image/png') : '';
 };
 
 const toMillimeters = (value, unit) => {

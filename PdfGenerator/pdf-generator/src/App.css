@@ -136,7 +136,7 @@ button:disabled {
 
 .slip-preview {
   --paper: #ffffff;
-  --ink: #121820;
+  --ink: #10234f;
   position: relative;
   width: min(100%, 1100px);
   min-width: 920px;
@@ -174,12 +174,15 @@ button:disabled {
 }
 
 .side-holes span {
-  width: 12px;
-  height: 12px;
-  flex: 0 0 12px;
-  border: 1px solid var(--ink);
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 1px solid #303030;
   border-radius: 50%;
-  background: #eef2f5;
+  background: #111111;
+  box-shadow:
+    inset -2px -2px 3px rgba(255, 255, 255, 0.18),
+    inset 2px 2px 3px rgba(0, 0, 0, 0.7);
 }
 
 .dotted-artwork {
