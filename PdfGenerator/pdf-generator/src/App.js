@@ -70,57 +70,92 @@ const TRUCK_CABIN_DOTS = Array.from({ length: 14 }, (_, row) => (
       : null;
   }).filter(Boolean)
 )).flat();
-const DOT_SOURCE_SCALE = 5;
-const DOT_PITCH = 3;
-const DOT_RADIUS = 1.34;
-const DOT_THRESHOLD = 195;
-const DOT_INK = '#10234f';
-
-const createDottedArtwork = (sourceCanvas) => {
-  const sourceContext = sourceCanvas.getContext('2d', { willReadFrequently: true });
-  const pixels = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height).data;
-  const outputCanvas = document.createElement('canvas');
-  const outputContext = outputCanvas.getContext('2d');
-
-  outputCanvas.width = sourceCanvas.width;
-  outputCanvas.height = sourceCanvas.height;
-  outputContext.fillStyle = '#ffffff';
-  outputContext.fillRect(0, 0, outputCanvas.width, outputCanvas.height);
-  outputContext.fillStyle = DOT_INK;
-  outputContext.beginPath();
-  let dotCount = 0;
-
-  for (let y = 0; y < sourceCanvas.height; y += DOT_PITCH) {
-    for (let x = 0; x < sourceCanvas.width; x += DOT_PITCH) {
-      let darkest = 255;
-
-      for (let sampleY = 0; sampleY < DOT_PITCH; sampleY += 1) {
-        for (let sampleX = 0; sampleX < DOT_PITCH; sampleX += 1) {
-          const pixelX = Math.min(x + sampleX, sourceCanvas.width - 1);
-          const pixelY = Math.min(y + sampleY, sourceCanvas.height - 1);
-          const pixelIndex = (pixelY * sourceCanvas.width + pixelX) * 4;
-          const luminance = (
-            pixels[pixelIndex] * 0.2126
-            + pixels[pixelIndex + 1] * 0.7152
-            + pixels[pixelIndex + 2] * 0.0722
-          );
-          darkest = Math.min(darkest, luminance);
-        }
-      }
-
-      if (darkest < DOT_THRESHOLD) {
-        const centerX = x + DOT_PITCH / 2;
-        const centerY = y + DOT_PITCH / 2;
-        outputContext.moveTo(centerX + DOT_RADIUS, centerY);
-        outputContext.arc(centerX, centerY, DOT_RADIUS, 0, Math.PI * 2);
-        dotCount += 1;
-      }
-    }
-  }
-
-  outputContext.fill();
-  return dotCount > 0 ? outputCanvas.toDataURL('image/png') : '';
+const PDF_CAPTURE_SCALE = 3;
+const DOT_FONT = {
+  ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'],
+  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+  B: ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
+  C: ['01111', '10000', '10000', '10000', '10000', '10000', '01111'],
+  D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110'],
+  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
+  G: ['01111', '10000', '10000', '10111', '10001', '10001', '01111'],
+  H: ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
+  I: ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
+  J: ['00111', '00010', '00010', '00010', '00010', '10010', '01100'],
+  K: ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
+  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
+  M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
+  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
+  O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
+  P: ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
+  Q: ['01110', '10001', '10001', '10001', '10101', '10010', '01101'],
+  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+  S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
+  T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+  U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'],
+  V: ['10001', '10001', '10001', '10001', '10001', '01010', '00100'],
+  W: ['10001', '10001', '10001', '10101', '10101', '10101', '01010'],
+  X: ['10001', '10001', '01010', '00100', '01010', '10001', '10001'],
+  Y: ['10001', '10001', '01010', '00100', '00100', '00100', '00100'],
+  Z: ['11111', '00001', '00010', '00100', '01000', '10000', '11111'],
+  0: ['01110', '10001', '10011', '10101', '11001', '10001', '01110'],
+  1: ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
+  2: ['01110', '10001', '00001', '00010', '00100', '01000', '11111'],
+  3: ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
+  4: ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
+  5: ['11111', '10000', '10000', '11110', '00001', '00001', '11110'],
+  6: ['01110', '10000', '10000', '11110', '10001', '10001', '01110'],
+  7: ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
+  8: ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
+  9: ['01110', '10001', '10001', '01111', '00001', '00001', '01110'],
+  '.': ['00000', '00000', '00000', '00000', '00000', '01100', '01100'],
+  ',': ['00000', '00000', '00000', '00000', '00000', '01100', '01000'],
+  '-': ['00000', '00000', '00000', '11111', '00000', '00000', '00000'],
+  ':': ['00000', '01100', '01100', '00000', '01100', '01100', '00000'],
+  '/': ['00001', '00010', '00010', '00100', '01000', '01000', '10000'],
+  '|': ['00100', '00100', '00100', '00100', '00100', '00100', '00100'],
+  "'": ['01100', '01100', '00100', '00000', '00000', '00000', '00000'],
+  '&': ['01100', '10010', '10100', '01000', '10101', '10010', '01101'],
+  '(': ['00010', '00100', '01000', '01000', '01000', '00100', '00010'],
+  ')': ['01000', '00100', '00010', '00010', '00010', '00100', '01000'],
+  '?': ['01110', '10001', '00001', '00010', '00100', '00000', '00100'],
 };
+
+function DotText({ text, pitch = 3, radius = 1, className = '' }) {
+  const value = String(text ?? '').toUpperCase();
+  const chars = [...value];
+  const dots = chars.flatMap((char, charIndex) => {
+    const pattern = DOT_FONT[char] || DOT_FONT['?'];
+    const xOffset = charIndex * 6 * pitch;
+
+    return pattern.flatMap((row, rowIndex) => (
+      [...row].map((cell, columnIndex) => (
+        cell === '1'
+          ? { x: xOffset + columnIndex * pitch, y: rowIndex * pitch }
+          : null
+      )).filter(Boolean)
+    ));
+  });
+  const viewWidth = Math.max(1, (chars.length * 6 - 1) * pitch);
+  const viewHeight = 7 * pitch;
+
+  return (
+    <svg
+      className={`dot-text ${className}`.trim()}
+      viewBox={`${-radius} ${-radius} ${viewWidth + radius * 2} ${viewHeight + radius * 2}`}
+      width={viewWidth + radius * 2}
+      height={viewHeight + radius * 2}
+      role="img"
+      aria-label={String(text ?? '')}
+      preserveAspectRatio="xMinYMid meet"
+    >
+      {dots.map((dot, index) => (
+        <circle key={index} cx={dot.x} cy={dot.y} r={radius} fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
 
 const toMillimeters = (value, unit) => {
   const numericValue = Number(value) || 0;
@@ -153,7 +188,6 @@ function App() {
   const [slip, setSlip] = useState(initialSlip);
   const [pdfSettings, setPdfSettings] = useState(getStoredPdfSettings);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [dottedArtwork, setDottedArtwork] = useState('');
   const slipRef = useRef(null);
 
   const netWeight = useMemo(() => {
@@ -174,32 +208,6 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(PDF_SETTINGS_KEY, JSON.stringify(pdfSettings));
   }, [pdfSettings]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const frame = window.requestAnimationFrame(async () => {
-      if (!slipRef.current) return;
-
-      const sourceCanvas = await html2canvas(slipRef.current, {
-        backgroundColor: '#ffffff',
-        scale: DOT_SOURCE_SCALE,
-        useCORS: true,
-        logging: false,
-        onclone: (clonedDocument) => {
-          clonedDocument.querySelector('.dotted-artwork')?.remove();
-        },
-      });
-
-      if (!cancelled) {
-        setDottedArtwork(createDottedArtwork(sourceCanvas));
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      window.cancelAnimationFrame(frame);
-    };
-  }, [slip]);
 
   const setField = (name, value) => {
     setSlip((current) => ({ ...current, [name]: value }));
@@ -292,12 +300,17 @@ function App() {
         imageWidth = imageHeight * sourceRatio;
       }
 
-      const imageData = dottedArtwork;
+      const canvas = await html2canvas(slipRef.current, {
+        backgroundColor: '#ffffff',
+        scale: PDF_CAPTURE_SCALE,
+        useCORS: true,
+        logging: false,
+      });
+      const imageData = canvas.toDataURL('image/png');
       const imageX = (pageWidth - imageWidth) / 2;
       const imageY = (pageHeight - imageHeight) / 2;
 
-      if (!imageData) return;
-      doc.addImage(imageData, 'PNG', imageX, imageY, imageWidth, imageHeight, undefined, 'NONE');
+      doc.addImage(imageData, 'PNG', imageX, imageY, imageWidth, imageHeight, undefined, 'FAST');
       doc.save(`weighbridge-slip-${slip.vehicleNo || slip.serialNo}.pdf`);
     } finally {
       setIsGenerating(false);
@@ -410,20 +423,22 @@ function App() {
           </div>
 
           <div className="side-rail">
-            <span>COMPUTERISED WEIGH BRIDGE</span>
+            <span><DotText text="COMPUTERISED WEIGH BRIDGE" pitch={2.25} radius={0.8} /></span>
           </div>
 
           <header className="slip-header">
             <div>
-              <h2>MAAS INFRA AND LOGISTICS LTD.</h2>
-              <p>An ISO 9001:2015 Certified weighbridge slip</p>
+              <h2><DotText text="MAAS INFRA AND LOGISTICS LTD." pitch={2.9} radius={1.05} /></h2>
+              <p><DotText text="AN ISO 9001:2015 CERTIFIED WEIGHBRIDGE SLIP" pitch={1.85} radius={0.68} /></p>
             </div>
-            <div className="om-mark">ॐ</div>
+            <div className="om-mark">
+              <img src={`${process.env.PUBLIC_URL}/pdfbox-dot-matrix/om-dot-matrix.png`} alt="Om" />
+            </div>
             <div className="journey-mark">
-              <strong>Happy Journey</strong>
-              <span>शुभ यात्रा</span>
+              <strong><DotText text="HAPPY" pitch={3.1} radius={1.08} /></strong>
+              <span><DotText text="JOURNEY" pitch={2.8} radius={0.98} /></span>
             </div>
-            <div className="maas-mark">MAAS</div>
+            <div className="maas-mark"><DotText text="MAAS" pitch={4.5} radius={1.55} /></div>
           </header>
 
           <div className="truck-scene">
@@ -445,54 +460,52 @@ function App() {
             </svg>
           </div>
 
-          <div className="capacity-band">CAPACITY 150 TON | 20 METER LONG | 24 HOURS SERVICE</div>
+          <div className="capacity-band">
+            <DotText text="CAPACITY 150 TON | 20 METER LONG | 24 HOURS SERVICE" pitch={2.55} radius={0.92} />
+          </div>
 
           <div className="detail-grid">
-            <div><span>Vehicle No.</span><b>{values.vehicleNo}</b></div>
-            <div><span>Serial No.</span><b>{slip.serialNo}</b></div>
-            <div><span>Date</span><b>{values.date}</b></div>
-            <div><span>Time</span><b>{slip.time}</b></div>
-            <div><span>Type</span><b>{slip.vehicleType}</b></div>
-            <div><span>Driver</span><b>{slip.driver}</b></div>
+            <div><span><DotText text="Vehicle No." pitch={1.55} radius={0.55} /></span><b><DotText text={values.vehicleNo} pitch={2.05} radius={0.75} /></b></div>
+            <div><span><DotText text="Serial No." pitch={1.55} radius={0.55} /></span><b><DotText text={slip.serialNo} pitch={2.05} radius={0.75} /></b></div>
+            <div><span><DotText text="Date" pitch={1.55} radius={0.55} /></span><b><DotText text={values.date} pitch={2.05} radius={0.75} /></b></div>
+            <div><span><DotText text="Time" pitch={1.55} radius={0.55} /></span><b><DotText text={slip.time} pitch={2.05} radius={0.75} /></b></div>
+            <div><span><DotText text="Type" pitch={1.55} radius={0.55} /></span><b><DotText text={slip.vehicleType} pitch={2.05} radius={0.75} /></b></div>
+            <div><span><DotText text="Driver" pitch={1.55} radius={0.55} /></span><b><DotText text={slip.driver} pitch={2.05} radius={0.75} /></b></div>
           </div>
 
           <div className="weight-cards">
             <article className="weight-card gross-card">
-              <span>GROSS KG</span>
-              <b>{values.gross}</b>
+              <span><DotText text="GROSS KG" pitch={2} radius={0.72} /></span>
+              <b><DotText text={values.gross} pitch={4.55} radius={1.55} /></b>
             </article>
             <article className="weight-card tare-card">
-              <span>TARE KG</span>
-              <b>{values.tare}</b>
+              <span><DotText text="TARE KG" pitch={2} radius={0.72} /></span>
+              <b><DotText text={values.tare} pitch={4.55} radius={1.55} /></b>
             </article>
             <article className="weight-card net-card">
-              <span>NET KG</span>
-              <b>{values.net}</b>
+              <span><DotText text="NET KG" pitch={2} radius={0.72} /></span>
+              <b><DotText text={values.net} pitch={4.55} radius={1.55} /></b>
             </article>
             <article className="amount-card">
-              <span>RECEIVED Rs.</span>
-              <b>{slip.receivedAmount}</b>
+              <span><DotText text="RECEIVED RS." pitch={1.85} radius={0.66} /></span>
+              <b><DotText text={slip.receivedAmount} pitch={4.55} radius={1.55} /></b>
             </article>
           </div>
 
           <div className="customer-line">
-            <span>Customer</span>
-            <b>{values.customerName}</b>
+            <span><DotText text="Customer" pitch={1.65} radius={0.58} /></span>
+            <b><DotText text={values.customerName} pitch={2.1} radius={0.76} /></b>
           </div>
 
           <p className="notice-line">
-            Record will not be available after one month. Goods are weighed and kept at owner risk.
+            <DotText text="Record will not be available after one month. Goods are weighed and kept at owner risk." pitch={1.55} radius={0.55} />
           </p>
 
           <footer className="slip-footer">
-            <div>Registered Office: Mumbai, Maharashtra | Total Logistics Solution</div>
-            <div>Driver's Signature</div>
-            <div>Operator's Signature</div>
+            <div><DotText text="Registered Office: Mumbai, Maharashtra | Total Logistics Solution" pitch={1.45} radius={0.52} /></div>
+            <div><DotText text="Driver's Signature" pitch={1.65} radius={0.58} /></div>
+            <div><DotText text="Operator's Signature" pitch={1.65} radius={0.58} /></div>
           </footer>
-
-          {dottedArtwork && (
-            <img className="dotted-artwork" src={dottedArtwork} alt="" aria-hidden="true" />
-          )}
         </div>
       </section>
     </main>

@@ -136,7 +136,7 @@ button:disabled {
 
 .slip-preview {
   --paper: #ffffff;
-  --ink: #10234f;
+  --ink: #23365f;
   position: relative;
   width: min(100%, 1100px);
   min-width: 920px;
@@ -185,15 +185,12 @@ button:disabled {
     inset 2px 2px 3px rgba(0, 0, 0, 0.7);
 }
 
-.dotted-artwork {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  width: 100%;
-  height: 100%;
+.dot-text {
   display: block;
-  object-fit: fill;
-  pointer-events: none;
+  max-width: 100%;
+  height: auto;
+  color: #121820;
+  overflow: visible;
 }
 
 .side-rail {
@@ -206,7 +203,7 @@ button:disabled {
   background: transparent;
   color: #121820;
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -220,6 +217,10 @@ button:disabled {
   white-space: nowrap;
 }
 
+.side-rail .dot-text {
+  margin: 0 auto;
+}
+
 .slip-header {
   position: absolute;
   top: 26px;
@@ -229,14 +230,13 @@ button:disabled {
   grid-template-columns: 1.1fr 80px 190px 148px;
   align-items: center;
   gap: 18px;
-  border-bottom: 2px dotted var(--ink);
+  border-bottom: 1px dotted var(--ink);
   padding-bottom: 16px;
 }
 
 .slip-header h2 {
   margin: 0;
   color: #121820;
-  font-size: 26px;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -245,40 +245,49 @@ button:disabled {
   margin: 8px 0 0;
   color: #121820;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .om-mark {
   color: #121820;
   font-family: "Courier New", Courier, monospace;
-  font-size: 50px;
-  font-weight: 900;
-  text-align: center;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.om-mark img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: contrast(3) brightness(0.22);
 }
 
 .journey-mark {
   display: grid;
+  justify-items: center;
   color: #121820;
   font-family: "Courier New", Courier, monospace;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.05;
   text-align: center;
 }
 
 .journey-mark strong {
-  font-size: 30px;
+  display: block;
 }
 
 .journey-mark span {
-  font-size: 22px;
+  display: block;
 }
 
 .maas-mark {
   color: #121820;
-  font-size: 48px;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1;
-  text-align: right;
+  display: grid;
+  justify-items: end;
 }
 
 .truck-scene {
@@ -304,14 +313,18 @@ button:disabled {
   display: grid;
   place-items: center;
   height: 46px;
-  border-block: 2px dotted var(--ink);
+  border-block: 1px dotted var(--ink);
   border-radius: 0;
   background: transparent;
   color: #121820;
   font-family: "Courier New", Courier, monospace;
   font-size: 25px;
-  font-weight: 900;
+  font-weight: 700;
   text-align: center;
+}
+
+.capacity-band .dot-text {
+  margin: 0 auto;
 }
 
 .detail-grid {
@@ -322,16 +335,16 @@ button:disabled {
   display: grid;
   grid-template-columns: 1.3fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr;
   gap: 0;
-  border-top: 2px dotted var(--ink);
-  border-left: 2px dotted var(--ink);
+  border-top: 1px dotted var(--ink);
+  border-left: 1px dotted var(--ink);
 }
 
 .detail-grid div,
 .customer-line {
   min-width: 0;
   border: 0;
-  border-right: 2px dotted var(--ink);
-  border-bottom: 2px dotted var(--ink);
+  border-right: 1px dotted var(--ink);
+  border-bottom: 1px dotted var(--ink);
   border-radius: 0;
   background: #ffffff;
   padding: 12px 13px;
@@ -343,7 +356,7 @@ button:disabled {
   margin-bottom: 6px;
   color: #121820;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
@@ -351,7 +364,6 @@ button:disabled {
 .customer-line b {
   display: block;
   color: #121820;
-  font-size: 18px;
   overflow-wrap: anywhere;
 }
 
@@ -363,8 +375,8 @@ button:disabled {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
-  border-top: 3px dotted var(--ink);
-  border-left: 3px dotted var(--ink);
+  border-top: 1px dotted var(--ink);
+  border-left: 1px dotted var(--ink);
 }
 
 .weight-card,
@@ -374,8 +386,8 @@ button:disabled {
   align-content: center;
   gap: 8px;
   border: 0;
-  border-right: 3px dotted var(--ink);
-  border-bottom: 3px dotted var(--ink);
+  border-right: 1px dotted var(--ink);
+  border-bottom: 1px dotted var(--ink);
   border-radius: 0;
   padding: 16px;
   background: #ffffff;
@@ -384,7 +396,7 @@ button:disabled {
 .weight-card span,
 .amount-card span {
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -392,7 +404,6 @@ button:disabled {
 .amount-card b {
   color: #121820;
   font-family: 'Courier New', Courier, monospace;
-  font-size: 42px;
   line-height: 1;
 }
 
@@ -415,8 +426,8 @@ button:disabled {
   display: grid;
   grid-template-columns: 130px 1fr;
   align-items: center;
-  border-left: 2px dotted var(--ink);
-  border-top: 2px dotted var(--ink);
+  border-left: 1px dotted var(--ink);
+  border-top: 1px dotted var(--ink);
 }
 
 .customer-line span {
@@ -432,7 +443,11 @@ button:disabled {
   color: #121820;
   font-family: "Courier New", Courier, monospace;
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 700;
+}
+
+.notice-line .dot-text {
+  width: 100%;
 }
 
 .slip-footer {
@@ -443,16 +458,16 @@ button:disabled {
   height: 62px;
   display: grid;
   grid-template-columns: 1.7fr 0.8fr 0.9fr;
-  border-top: 3px dotted var(--ink);
+  border-top: 1px dotted var(--ink);
 }
 
 .slip-footer div {
   display: grid;
   place-items: center;
-  border-left: 3px dotted var(--ink);
+  border-left: 1px dotted var(--ink);
   color: #121820;
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
 }
 
