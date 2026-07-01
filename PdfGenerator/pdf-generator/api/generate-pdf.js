@@ -117,7 +117,7 @@ module.exports = async function handler(req, res) {
     await page.setViewport({
       width: Math.ceil(sourceWidth),
       height: Math.ceil(sourceHeight),
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1,
     });
     await page.setContent(buildPdfHtml({
       ...req.body,
@@ -156,9 +156,12 @@ module.exports = async function handler(req, res) {
       },
     });
 
+    const pdfBuffer = Buffer.from(pdf);
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    return res.send(pdf);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    return res.end(pdfBuffer);
   } catch (error) {
     console.error('PDF generation failed:', error);
     return res.status(500).json({ error: 'PDF generation failed.' });
