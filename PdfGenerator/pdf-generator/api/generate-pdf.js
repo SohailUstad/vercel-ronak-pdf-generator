@@ -1,5 +1,3 @@
-const puppeteer = require('puppeteer-core');
-
 const clampNumber = (value, fallback, min, max) => {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
@@ -105,6 +103,7 @@ module.exports = async function handler(req, res) {
   let browser;
 
   try {
+    const puppeteer = await import('puppeteer-core');
     const chromium = (await import('@sparticuz/chromium')).default;
 
     browser = await puppeteer.launch({
