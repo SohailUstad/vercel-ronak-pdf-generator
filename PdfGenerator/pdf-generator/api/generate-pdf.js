@@ -1,4 +1,3 @@
-const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 
 const clampNumber = (value, fallback, min, max) => {
@@ -106,6 +105,8 @@ module.exports = async function handler(req, res) {
   let browser;
 
   try {
+    const chromium = (await import('@sparticuz/chromium')).default;
+
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
