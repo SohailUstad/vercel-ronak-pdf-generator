@@ -2,13 +2,20 @@
   "name": "pdf-generator",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.17.0"
+  },
   "dependencies": {
+    "@sparticuz/chromium": "^149.0.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
+    "express": "^5.2.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
+    "puppeteer": "^25.2.1",
+    "puppeteer-core": "^25.3.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-scripts": "5.0.1",
@@ -17,6 +24,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "serve": "node server.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

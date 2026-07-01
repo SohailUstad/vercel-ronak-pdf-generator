@@ -1,25 +1,56 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { flushSync } from 'react-dom';
 import './App.css';
 
 const initialSlip = {
   vehicleNo: '',
   serialNo: '47926',
-  date: new Date().toISOString().slice(0, 10),
-  time: new Date().toTimeString().slice(0, 5),
+  inDate: new Date().toISOString().slice(0, 10),
+  inTime: new Date().toTimeString().slice(0, 5),
+  outDate: new Date().toISOString().slice(0, 10),
+  outTime: new Date().toTimeString().slice(0, 5),
   vehicleType: 'Truck',
   driver: 'OM',
   customerName: '',
   grossWeight: '',
   tareWeight: '',
   receivedAmount: '200',
+  weightCharge: '200',
 };
 
 const formatDate = (value) => {
   if (!value) return '';
   const [year, month, day] = value.split('-');
   return `${day}/${month}/${year.slice(2)}`;
+};
+
+const parseDateTime = (dateValue, timeValue) => {
+  if (!dateValue || !timeValue) return null;
+  const dateTime = new Date(`${dateValue}T${timeValue}`);
+  return Number.isNaN(dateTime.getTime()) ? null : dateTime;
+};
+
+const formatInputDate = (dateValue) => {
+  const year = dateValue.getFullYear();
+  const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+  const day = String(dateValue.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getNextDate = (dateValue) => {
+  const date = new Date(`${dateValue}T00:00`);
+  date.setDate(date.getDate() + 1);
+  return formatInputDate(date);
+};
+
+const formatTime12 = (value, includeSeconds = false) => {
+  if (!value) return '';
+  const [hourText = '0', minuteText = '00'] = value.split(':');
+  const hour = Number(hourText);
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 || 12;
+  const time = `${String(hour12).padStart(2, '0')}:${minuteText.padStart(2, '0')}`;
+  return includeSeconds ? `${time}:00 ${suffix}` : `${time} ${suffix}`;
 };
 
 const digitsOnly = (value) => value.replace(/[^\d]/g, '');
@@ -30,6 +61,7 @@ const decimalOnly = (value) => {
 };
 const toNumber = (value) => Number(value || 0);
 const PDF_SETTINGS_KEY = 'maas-weighbridge-pdf-settings';
+const SLIP_LAYOUT_KEY = 'maas-weighbridge-slip-layout';
 
 const pagePresets = {
   a4: { label: 'A4 landscape', width: 297, height: 210 },
@@ -52,6 +84,9 @@ const unitLabels = {
   in: 'in',
 };
 const SIDE_HOLES = Array.from({ length: 19 }, (_, index) => index);
+const waitForNextPaint = () => new Promise((resolve) => {
+  requestAnimationFrame(() => requestAnimationFrame(resolve));
+});
 const TRUCK_BODY_DOTS = Array.from({ length: 10 }, (_, row) => (
   Array.from({ length: 40 }, (__, column) => ({
     x: 22 + column * 3.2,
@@ -70,7 +105,6 @@ const TRUCK_CABIN_DOTS = Array.from({ length: 14 }, (_, row) => (
       : null;
   }).filter(Boolean)
 )).flat();
-const PDF_CAPTURE_SCALE = 3;
 const DOT_FONT = {
   ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'],
   A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
@@ -139,13 +173,15 @@ function DotText({ text, pitch = 3, radius = 1, className = '' }) {
   });
   const viewWidth = Math.max(1, (chars.length * 6 - 1) * pitch);
   const viewHeight = 7 * pitch;
+  const paddedWidth = viewWidth + radius * 4;
+  const paddedHeight = viewHeight + radius * 4;
 
   return (
     <svg
       className={`dot-text ${className}`.trim()}
-      viewBox={`${-radius} ${-radius} ${viewWidth + radius * 2} ${viewHeight + radius * 2}`}
-      width={viewWidth + radius * 2}
-      height={viewHeight + radius * 2}
+      viewBox={`${-radius * 2} ${-radius * 2} ${paddedWidth} ${paddedHeight}`}
+      width={paddedWidth}
+      height={paddedHeight}
       role="img"
       aria-label={String(text ?? '')}
       preserveAspectRatio="xMinYMid meet"
@@ -175,6 +211,22 @@ const formatMeasurement = (value) => {
   return String(rounded).replace(/\.?0+$/, '');
 };
 
+const getPrintableStyles = () => (
+  Array.from(document.styleSheets).map((styleSheet) => {
+    try {
+      return Array.from(styleSheet.cssRules).map((rule) => rule.cssText).join('\n');
+    } catch {
+      return '';
+    }
+  }).filter(Boolean).join('\n')
+);
+
+const formatLongDate = (value) => {
+  if (!value) return '';
+  const [year, month, day] = value.split('-');
+  return `${day}/${month}/${year}`;
+};
+
 const getStoredPdfSettings = () => {
   try {
     const saved = window.localStorage.getItem(PDF_SETTINGS_KEY);
@@ -184,9 +236,68 @@ const getStoredPdfSettings = () => {
   }
 };
 
+const getStoredSlipLayout = () => {
+  try {
+    return window.localStorage.getItem(SLIP_LAYOUT_KEY) || 'layout1';
+  } catch {
+    return 'layout1';
+  }
+};
+
+function MiniWeightMark({ type }) {
+  const truckDots = [
+    ...Array.from({ length: 5 }, (_, row) => (
+      Array.from({ length: 20 }, (__, column) => ({ x: 4 + column * 1.85, y: 6 + row * 1.85 }))
+    )).flat(),
+    ...Array.from({ length: 6 }, (_, row) => (
+      Array.from({ length: 6 }, (__, column) => {
+        const x = 47 + column * 1.85;
+        const y = 4 + row * 1.85;
+        return y < 8 && x < 52 ? null : { x, y };
+      }).filter(Boolean)
+    )).flat(),
+  ];
+  const tareDots = Array.from({ length: 10 }, (_, row) => (
+    Array.from({ length: 20 }, (__, column) => {
+      const x = 10 + column * 1.75;
+      const y = 3 + row * 1.65;
+      const dx = (column - 9.5) / 9.5;
+      const dy = (row - 4.5) / 4.5;
+      const noisyEdge = (row + column) % 5 === 0 ? 0.14 : 0;
+      return dx * dx + dy * dy < 1 + noisyEdge ? { x, y } : null;
+    }).filter(Boolean)
+  )).flat();
+  const netDots = [
+    ...Array.from({ length: 5 }, (_, row) => (
+      Array.from({ length: 18 }, (__, column) => ({ x: 10 + column * 1.9, y: 5 + row * 1.9 }))
+    )).flat(),
+    ...Array.from({ length: 14 }, (_, index) => ({ x: 12 + index * 2.7, y: 19 })),
+  ];
+  const dotsByType = {
+    gross: truckDots,
+    tare: tareDots,
+    net: netDots,
+  };
+
+  return (
+    <svg className="mini-weight-mark" viewBox="0 0 66 30" aria-hidden="true">
+      {(dotsByType[type] || netDots).map((dot, index) => (
+        <circle key={index} cx={dot.x} cy={dot.y} r="0.82" fill="currentColor" />
+      ))}
+      {type === 'gross' && (
+        <>
+          <circle cx="16" cy="20" r="3.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="0.8 1.4" />
+          <circle cx="52" cy="20" r="3.7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="0.8 1.4" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function App() {
   const [slip, setSlip] = useState(initialSlip);
   const [pdfSettings, setPdfSettings] = useState(getStoredPdfSettings);
+  const [slipLayout, setSlipLayout] = useState(getStoredSlipLayout);
   const [isGenerating, setIsGenerating] = useState(false);
   const slipRef = useRef(null);
 
@@ -199,7 +310,14 @@ function App() {
     gross: slip.grossWeight || '22980',
     tare: slip.tareWeight || '8170',
     net: netWeight || '14810',
-    date: formatDate(slip.date),
+    inDate: formatDate(slip.inDate),
+    outDate: formatDate(slip.outDate),
+    longInDate: formatLongDate(slip.inDate),
+    longOutDate: formatLongDate(slip.outDate),
+    inTime: formatTime12(slip.inTime),
+    outTime: formatTime12(slip.outTime),
+    inTimeWithSeconds: formatTime12(slip.inTime, true),
+    outTimeWithSeconds: formatTime12(slip.outTime, true),
     vehicleNo: slip.vehicleNo || 'MH14FM8937',
     customerName: slip.customerName || 'WALK-IN CUSTOMER',
   };
@@ -209,8 +327,31 @@ function App() {
     window.localStorage.setItem(PDF_SETTINGS_KEY, JSON.stringify(pdfSettings));
   }, [pdfSettings]);
 
+  useEffect(() => {
+    window.localStorage.setItem(SLIP_LAYOUT_KEY, slipLayout);
+  }, [slipLayout]);
+
+  const normalizeSlipTiming = (slipValue) => {
+    const inDateTime = parseDateTime(slipValue.inDate, slipValue.inTime);
+    const outDateTime = parseDateTime(slipValue.outDate, slipValue.outTime);
+
+    if (!inDateTime || !outDateTime || outDateTime > inDateTime) {
+      return slipValue;
+    }
+
+    return {
+      ...slipValue,
+      outDate: getNextDate(slipValue.inDate),
+    };
+  };
+
   const setField = (name, value) => {
-    setSlip((current) => ({ ...current, [name]: value }));
+    setSlip((current) => {
+      const next = { ...current, [name]: value };
+      return ['inDate', 'inTime', 'outDate', 'outTime'].includes(name)
+        ? normalizeSlipTiming(next)
+        : next;
+    });
   };
 
   const handleChange = (event) => {
@@ -273,45 +414,70 @@ function App() {
     };
   };
 
+  const getPdfPayload = () => {
+    const receipt = slipRef.current.cloneNode(true);
+    const pageSize = getPdfPageSize();
+    const margin = Math.max(toMillimeters(pdfSettings.margin, activeSizeUnit), 0);
+    const sourceWidth = slipRef.current.offsetWidth;
+    const sourceHeight = slipRef.current.offsetHeight;
+
+    receipt.style.width = `${sourceWidth}px`;
+    receipt.style.height = `${sourceHeight}px`;
+    receipt.style.minWidth = `${sourceWidth}px`;
+    receipt.querySelectorAll('img').forEach((image) => {
+      image.setAttribute('src', image.src);
+    });
+
+    return {
+      html: receipt.outerHTML,
+      css: getPrintableStyles(),
+      pageWidth: pageSize.width,
+      pageHeight: pageSize.height,
+      margin,
+      sourceWidth,
+      sourceHeight,
+      origin: window.location.origin,
+      fileName: `weighbridge-slip-${slip.vehicleNo || slip.serialNo}.pdf`,
+    };
+  };
+
+  const downloadPdf = async () => {
+    const payload = getPdfPayload();
+    const response = await fetch('/api/generate-pdf', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error('PDF generation failed. Please try again.');
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = payload.fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!slipRef.current) return;
 
     try {
-      setIsGenerating(true);
-      const pageSize = getPdfPageSize();
-      const doc = new jsPDF({
-        orientation: pageSize.width >= pageSize.height ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: [pageSize.width, pageSize.height],
-        compress: true,
+      flushSync(() => {
+        setIsGenerating(true);
       });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = Math.max(toMillimeters(pdfSettings.margin, activeSizeUnit), 0);
-      const maxWidth = pageWidth - margin * 2;
-      const maxHeight = pageHeight - margin * 2;
-      const sourceRatio = slipRef.current.offsetWidth / slipRef.current.offsetHeight;
-      let imageWidth = maxWidth;
-      let imageHeight = imageWidth / sourceRatio;
-
-      if (imageHeight > maxHeight) {
-        imageHeight = maxHeight;
-        imageWidth = imageHeight * sourceRatio;
-      }
-
-      const canvas = await html2canvas(slipRef.current, {
-        backgroundColor: '#ffffff',
-        scale: PDF_CAPTURE_SCALE,
-        useCORS: true,
-        logging: false,
-      });
-      const imageData = canvas.toDataURL('image/png');
-      const imageX = (pageWidth - imageWidth) / 2;
-      const imageY = (pageHeight - imageHeight) / 2;
-
-      doc.addImage(imageData, 'PNG', imageX, imageY, imageWidth, imageHeight, undefined, 'FAST');
-      doc.save(`weighbridge-slip-${slip.vehicleNo || slip.serialNo}.pdf`);
+      await waitForNextPaint();
+      await downloadPdf();
+    } catch (error) {
+      window.alert(error.message || 'PDF generation failed.');
     } finally {
       setIsGenerating(false);
     }
@@ -333,12 +499,20 @@ function App() {
             <input name="serialNo" value={slip.serialNo} onChange={handleNumber} required />
           </label>
           <label>
-            Date
-            <input name="date" type="date" value={slip.date} onChange={handleChange} required />
+            In date
+            <input name="inDate" type="date" value={slip.inDate} onChange={handleChange} required />
           </label>
           <label>
-            Time
-            <input name="time" type="time" value={slip.time} onChange={handleChange} required />
+            In time
+            <input name="inTime" type="time" value={slip.inTime} onChange={handleChange} required />
+          </label>
+          <label>
+            Out date
+            <input name="outDate" type="date" value={slip.outDate} onChange={handleChange} required />
+          </label>
+          <label>
+            Out time
+            <input name="outTime" type="time" value={slip.outTime} onChange={handleChange} required />
           </label>
           <label>
             Vehicle type
@@ -357,12 +531,23 @@ function App() {
             <input name="receivedAmount" inputMode="numeric" value={slip.receivedAmount} onChange={handleNumber} required />
           </label>
           <label>
+            Weight charges
+            <input name="weightCharge" inputMode="numeric" value={slip.weightCharge} onChange={handleNumber} required />
+          </label>
+          <label>
             Gross weight
             <input name="grossWeight" inputMode="numeric" value={slip.grossWeight} onChange={handleNumber} required placeholder="22980" />
           </label>
           <label>
             Tare weight
             <input name="tareWeight" inputMode="numeric" value={slip.tareWeight} onChange={handleNumber} required placeholder="8170" />
+          </label>
+          <label>
+            Slip layout
+            <select value={slipLayout} onChange={(event) => setSlipLayout(event.target.value)}>
+              <option value="layout1">Layout 1 - MAAS format</option>
+              <option value="layout2">Layout 2 - OM receipt</option>
+            </select>
           </label>
 
           <div className="net-line">
@@ -407,14 +592,18 @@ function App() {
             )}
           </fieldset>
 
-          <button type="submit" disabled={isGenerating}>
-            {isGenerating ? 'Generating PDF...' : 'Download PDF'}
+          <button type="submit" disabled={isGenerating} aria-busy={isGenerating}>
+            <span className="button-content" aria-live="polite">
+              {isGenerating && <span className="button-spinner" aria-hidden="true" />}
+              <span>{isGenerating ? 'Generating PDF...' : 'Download PDF'}</span>
+            </span>
           </button>
         </form>
       </section>
 
       <section className="preview-panel" aria-label="Slip preview">
-        <div className="slip-preview" ref={slipRef}>
+        {slipLayout === 'layout1' ? (
+        <div className="slip-preview" ref={slipRef} data-pdf-slip="active">
           <div className="side-holes side-holes-left" aria-hidden="true">
             {SIDE_HOLES.map((hole) => <span key={hole} />)}
           </div>
@@ -449,14 +638,14 @@ function App() {
               aria-label="Truck on weighbridge"
             >
               {TRUCK_BODY_DOTS.map((dot, index) => (
-                <circle key={`body-${index}`} cx={dot.x} cy={dot.y} r="1.05" fill="#121820" />
+                <circle key={`body-${index}`} cx={dot.x} cy={dot.y} r="1.05" fill="currentColor" />
               ))}
               {TRUCK_CABIN_DOTS.map((dot, index) => (
-                !dot.hidden && <circle key={`cabin-${index}`} cx={dot.x} cy={dot.y} r="1.05" fill="#121820" />
+                !dot.hidden && <circle key={`cabin-${index}`} cx={dot.x} cy={dot.y} r="1.05" fill="currentColor" />
               ))}
-              <circle cx="57" cy="59" r="9" fill="#ffffff" stroke="#121820" strokeWidth="4" strokeDasharray="1.6 2.2" />
-              <circle cx="167" cy="59" r="9" fill="#ffffff" stroke="#121820" strokeWidth="4" strokeDasharray="1.6 2.2" />
-              <line x1="0" y1="69" x2="240" y2="69" stroke="#121820" strokeWidth="5" strokeDasharray="1.5 2.5" />
+              <circle cx="57" cy="59" r="9" fill="var(--paper)" stroke="currentColor" strokeWidth="4" strokeDasharray="1.6 2.2" />
+              <circle cx="167" cy="59" r="9" fill="var(--paper)" stroke="currentColor" strokeWidth="4" strokeDasharray="1.6 2.2" />
+              <line x1="0" y1="69" x2="240" y2="69" stroke="currentColor" strokeWidth="5" strokeDasharray="1.5 2.5" />
             </svg>
           </div>
 
@@ -467,10 +656,12 @@ function App() {
           <div className="detail-grid">
             <div><span><DotText text="Vehicle No." pitch={1.55} radius={0.55} /></span><b><DotText text={values.vehicleNo} pitch={2.05} radius={0.75} /></b></div>
             <div><span><DotText text="Serial No." pitch={1.55} radius={0.55} /></span><b><DotText text={slip.serialNo} pitch={2.05} radius={0.75} /></b></div>
-            <div><span><DotText text="Date" pitch={1.55} radius={0.55} /></span><b><DotText text={values.date} pitch={2.05} radius={0.75} /></b></div>
-            <div><span><DotText text="Time" pitch={1.55} radius={0.55} /></span><b><DotText text={slip.time} pitch={2.05} radius={0.75} /></b></div>
-            <div><span><DotText text="Type" pitch={1.55} radius={0.55} /></span><b><DotText text={slip.vehicleType} pitch={2.05} radius={0.75} /></b></div>
-            <div><span><DotText text="Driver" pitch={1.55} radius={0.55} /></span><b><DotText text={slip.driver} pitch={2.05} radius={0.75} /></b></div>
+            <div><span><DotText text="In Date" pitch={1.55} radius={0.55} /></span><b><DotText text={values.inDate} pitch={2.05} radius={0.75} /></b></div>
+            <div><span><DotText text="In Time" pitch={1.55} radius={0.55} /></span><b><DotText text={values.inTime} pitch={1.8} radius={0.66} /></b></div>
+            <div><span><DotText text="Out Date" pitch={1.55} radius={0.55} /></span><b><DotText text={values.outDate} pitch={2.05} radius={0.75} /></b></div>
+            <div><span><DotText text="Out Time" pitch={1.55} radius={0.55} /></span><b><DotText text={values.outTime} pitch={1.8} radius={0.66} /></b></div>
+            <div className="detail-wide"><span><DotText text="Type" pitch={1.55} radius={0.55} /></span><b><DotText text={slip.vehicleType} pitch={2.05} radius={0.75} /></b></div>
+            <div className="detail-wide"><span><DotText text="Driver" pitch={1.55} radius={0.55} /></span><b><DotText text={slip.driver} pitch={2.05} radius={0.75} /></b></div>
           </div>
 
           <div className="weight-cards">
@@ -507,6 +698,85 @@ function App() {
             <div><DotText text="Operator's Signature" pitch={1.65} radius={0.58} /></div>
           </footer>
         </div>
+        ) : (
+        <div className="slip-preview slip-preview-layout2" ref={slipRef} data-pdf-slip="active">
+          <div className="side-holes side-holes-left" aria-hidden="true">
+            {SIDE_HOLES.map((hole) => <span key={hole} />)}
+          </div>
+          <div className="side-holes side-holes-right" aria-hidden="true">
+            {SIDE_HOLES.map((hole) => <span key={hole} />)}
+          </div>
+
+          <div className="layout2-content">
+            <div className="layout2-top-rule" />
+            <header className="layout2-header">
+              <div className="layout2-om-box">
+                <img src={`${process.env.PUBLIC_URL}/pdfbox-dot-matrix/om-dot-matrix.png`} alt="Om" />
+              </div>
+              <div className="layout2-title-block">
+                <DotText text="OM WEIGH BRIDGE" pitch={2.45} radius={0.9} />
+                <DotText text="SAPAOUND POST: KHURS. TEL: WADA, PALGHAR-421312" pitch={1.45} radius={0.52} />
+                <DotText text="NR. MULTISTEEL COMP. H.O.M: 9322967134, 9898527, 9637340876" pitch={1.35} radius={0.48} />
+              </div>
+              <div className="layout2-service-box">
+                <DotText text="24 HOURS" pitch={1.7} radius={0.6} />
+                <DotText text="SERVICE" pitch={1.7} radius={0.6} />
+                <span />
+                <DotText text="100 TONS" pitch={1.7} radius={0.6} />
+                <DotText text="CAPACITY" pitch={1.7} radius={0.6} />
+              </div>
+            </header>
+
+            <div className="layout2-meta">
+              <span><DotText text={`VEHICLE NO: ${values.vehicleNo}`} pitch={1.45} radius={0.52} /></span>
+              <span className="layout2-date-head"><DotText text="DATE" pitch={1.45} radius={0.52} /></span>
+              <span className="layout2-time-head"><DotText text="TIME" pitch={1.45} radius={0.52} /></span>
+              <span><DotText text={`SRNO: ${slip.serialNo}`} pitch={1.45} radius={0.52} /></span>
+            </div>
+
+            <div className="layout2-weights">
+              <div className="layout2-weight-row">
+                <MiniWeightMark type="gross" />
+                <DotText text="GROSS WEIGHT:" pitch={1.45} radius={0.52} />
+                <DotText text={`${values.gross}KG`} pitch={1.45} radius={0.52} />
+                <DotText text={values.longInDate} pitch={1.45} radius={0.52} />
+                <DotText text={values.inTimeWithSeconds} pitch={1.45} radius={0.52} />
+              </div>
+              <div className="layout2-weight-row">
+                <MiniWeightMark type="tare" />
+                <DotText text="TARE WEIGHT:" pitch={1.45} radius={0.52} />
+                <DotText text={`${values.tare}KG`} pitch={1.45} radius={0.52} />
+                <DotText text={values.longOutDate} pitch={1.45} radius={0.52} />
+                <DotText text={values.outTimeWithSeconds} pitch={1.45} radius={0.52} />
+              </div>
+              <div className="layout2-weight-row">
+                <MiniWeightMark type="net" />
+                <DotText text="NET WEIGHT:" pitch={1.45} radius={0.52} />
+                <DotText text={`${values.net}KG`} pitch={1.45} radius={0.52} />
+              </div>
+            </div>
+
+            <div className="layout2-customer-row">
+              <DotText text={`CUSTOMER NAME: ${values.customerName}`} pitch={1.45} radius={0.52} />
+              <DotText text={`WEIGHT CHARGES: ${slip.weightCharge}/-`} pitch={1.45} radius={0.52} />
+            </div>
+            <div className="layout2-cash-row">
+              <DotText text="CASH MEMO" pitch={1.65} radius={0.6} />
+            </div>
+            <div className="layout2-address-row">
+              <DotText text="ADDRESS:" pitch={1.45} radius={0.52} />
+              <DotText text={`TOTAL CHARGES: ${slip.receivedAmount}/-`} pitch={1.45} radius={0.52} />
+            </div>
+
+            <div className="layout2-note">
+              <DotText text="Please Note:" pitch={1.25} radius={0.45} />
+              <DotText text="1) Please check the weight, no responsibility accepted once carrier leaves the weighbridge." pitch={1.12} radius={0.4} />
+              <DotText text="2) When tare weight is oral it is stated by driver / owner of the vehicle." pitch={1.12} radius={0.4} />
+              <DotText text="3) Record will not be available after one month." pitch={1.12} radius={0.4} />
+            </div>
+          </div>
+        </div>
+        )}
       </section>
     </main>
   );
