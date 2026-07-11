@@ -739,15 +739,15 @@ function App() {
                 <MiniWeightMark type="gross" />
                 <DotText text="GROSS WEIGHT:" pitch={1.45} radius={0.52} />
                 <DotText text={`${values.gross}KG`} pitch={1.45} radius={0.52} />
-                <DotText text={values.longInDate} pitch={1.45} radius={0.52} />
-                <DotText text={values.inTimeWithSeconds} pitch={1.45} radius={0.52} />
+                <DotText text={values.longOutDate} pitch={1.45} radius={0.52} />
+                <DotText text={values.outTimeWithSeconds} pitch={1.45} radius={0.52} />
               </div>
               <div className="layout2-weight-row">
                 <MiniWeightMark type="tare" />
                 <DotText text="TARE WEIGHT:" pitch={1.45} radius={0.52} />
                 <DotText text={`${values.tare}KG`} pitch={1.45} radius={0.52} />
-                <DotText text={values.longOutDate} pitch={1.45} radius={0.52} />
-                <DotText text={values.outTimeWithSeconds} pitch={1.45} radius={0.52} />
+                <DotText text={values.longInDate} pitch={1.45} radius={0.52} />
+                <DotText text={values.inTimeWithSeconds} pitch={1.45} radius={0.52} />
               </div>
               <div className="layout2-weight-row">
                 <MiniWeightMark type="net" />
